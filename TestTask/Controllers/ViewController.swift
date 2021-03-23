@@ -7,12 +7,13 @@
 
 import UIKit
 import Moya
+import RxSwift
 
 class ViewController: UIViewController, Storyboarded {
 
     weak var coordinator: MainCoordinator?
-    let service = MoyaProvider<GoogleService>()
-    
+    let networkManager = NetworkManager()
+
     struct Constants {
         static let cornerRadius: CGFloat = 8.0
     }
@@ -104,21 +105,29 @@ class ViewController: UIViewController, Storyboarded {
         view.addSubview(acceptButton)
     }
     
+    // Needs work and moving to GoogleViewModel
     @objc private func didTapAcceptButton() {
         passwordField.resignFirstResponder()
         loginField.resignFirstResponder()
         executeRequest()
     }
     
-    private func executeRequest() {
-        service.request(.getGoogle) { (result) in
-            switch result {
-            case .success(let response):
-                print(response.statusCode)
-                self.coordinator?.login()
-            case .failure(let error):
-                print(error)
+    private func executeRequest() -> Completable {
+            return .create { observer in
+                self.networkManager.executeRequest()
+                    .subscribe(onCompleted: {
+                        observer(.completed)
+                    }, onError: { error in
+                        observer(.error(error))
+                    })
             }
-        }
+        }    
+    
+    
+    private func showError(_ error: MoyaError) {
+        print(error)
+        let alert = UIAlertController(title: "Log In Error", message: "We we unable to log you in", preferredStyle: .alert)
+        alert.addAction(UIAlertAction(title: "Dismiss", style: .cancel, handler: nil))
+        self.present(alert, animated: true)
     }
 }
